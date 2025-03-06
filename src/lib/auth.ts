@@ -3,7 +3,24 @@ import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import { compare } from "bcrypt"
-import { Role } from "@prisma/client"
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string
+      name?: string | null
+      email?: string | null
+      role?: string | null
+    }
+  }
+
+  interface User {
+    id: string
+    name?: string | null
+    email?: string | null
+    role?: string | null
+  }
+}
 
 /**
  * NextAuth configuration options
@@ -60,10 +77,12 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ token, session }) {
       if (token) {
-        session.user.id = token.id
-        session.user.name = token.name
-        session.user.email = token.email
-        session.user.role = token.role
+        session.user = {
+          id: token.id as string,
+          name: token.name,
+          email: token.email,
+          role: token.role as string | null,
+        }
       }
 
       return session

@@ -4,7 +4,8 @@ import { PrismaClient } from "@prisma/client"
  * Global Prisma Client instance
  */
 declare global {
-  var cachedPrisma: PrismaClient
+  // eslint-disable-next-line no-var
+  var cachedPrisma: PrismaClient | undefined
 }
 
 export let db: PrismaClient
