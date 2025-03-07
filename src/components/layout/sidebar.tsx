@@ -1,17 +1,17 @@
-"use client";
+'use client'
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/auth-context";
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
-  ClipboardList,
   Users,
+  FolderKanban,
   Settings,
   LogOut,
-} from "lucide-react";
+} from "lucide-react"
+import { signOut } from "next-auth/react"
+import { Button } from "@/components/ui/button"
 
 const routes = [
   {
@@ -21,15 +21,15 @@ const routes = [
     color: "text-sky-500",
   },
   {
-    label: "Projects",
-    icon: ClipboardList,
-    href: "/dashboard/projects",
+    label: "Users",
+    icon: Users,
+    href: "/dashboard/users",
     color: "text-violet-500",
   },
   {
-    label: "Team",
-    icon: Users,
-    href: "/dashboard/team",
+    label: "Projects",
+    icon: FolderKanban,
+    href: "/dashboard/projects",
     color: "text-pink-700",
   },
   {
@@ -38,16 +38,10 @@ const routes = [
     href: "/dashboard/settings",
     color: "text-gray-500",
   },
-];
+]
 
 export function Sidebar() {
-  const pathname = usePathname();
-  const { logout } = useAuth();
-
-  const handleLogout = async () => {
-    await logout();
-    window.location.href = "/login";
-  };
+  const pathname = usePathname()
 
   return (
     <div className="space-y-4 py-4 flex flex-col h-full bg-[#111827] text-white">
@@ -75,16 +69,16 @@ export function Sidebar() {
           ))}
         </div>
       </div>
-      <div className="px-3">
+      <div className="px-3 py-2">
         <Button
-          onClick={handleLogout}
-          variant="ghost"
+          onClick={() => signOut()}
           className="w-full justify-start text-zinc-400 hover:text-white hover:bg-white/10"
+          variant="ghost"
         >
           <LogOut className="h-5 w-5 mr-3" />
           Logout
         </Button>
       </div>
     </div>
-  );
+  )
 } 

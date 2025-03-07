@@ -1,24 +1,26 @@
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import { NextAuthOptions } from "next-auth"
+import { JWT } from "next-auth/jwt"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
-import { compare } from "bcrypt"
+import { compare } from "bcryptjs"
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string
-      name?: string | null
-      email?: string | null
-      role?: string | null
+      email: string
+      name: string | null
+      role: string
     }
   }
+}
 
-  interface User {
+declare module "next-auth/jwt" {
+  interface JWT {
     id: string
-    name?: string | null
-    email?: string | null
-    role?: string | null
+    email: string
+    name: string | null
+    role: string
   }
 }
 
@@ -26,43 +28,34 @@ declare module "next-auth" {
  * NextAuth configuration options
  */
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/auth/login",
-    error: "/auth/error",
-  },
   providers: [
     CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null
+          throw new Error("Invalid credentials")
         }
 
         const user = await db.user.findUnique({
           where: {
-            email: credentials.email
-          }
+            email: credentials.email,
+          },
         })
 
         if (!user) {
-          return null
+          console.log("User not found:", credentials.email)
+          throw new Error("Invalid credentials")
         }
 
-        const isPasswordValid = await compare(
-          credentials.password,
-          user.password
-        )
+        const isPasswordValid = await compare(credentials.password, user.password)
 
         if (!isPasswordValid) {
-          return null
+          console.log("Invalid password for user:", credentials.email)
+          throw new Error("Invalid credentials")
         }
 
         return {
@@ -71,29 +64,36 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
         }
-      }
-    })
+      },
+    }),
   ],
+  pages: {
+    signIn: "/login",
+  },
   callbacks: {
-    async session({ token, session }) {
-      if (token) {
-        session.user = {
-          id: token.id as string,
-          name: token.name,
-          email: token.email,
-          role: token.role as string | null,
-        }
-      }
-
-      return session
-    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
+        token.email = user.email
+        token.name = user.name
         token.role = user.role
       }
-
       return token
-    }
-  }
+    },
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.id
+        session.user.email = token.email
+        session.user.name = token.name
+        session.user.role = token.role
+      }
+      return session
+    },
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 } 

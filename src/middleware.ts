@@ -1,23 +1,22 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { withAuth } from "next-auth/middleware"
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const isAuthenticated = request.cookies.has("auth-token");
-
-  // Redirect authenticated users away from auth pages
-  if (isAuthenticated && (pathname === "/login" || pathname === "/")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // Redirect unauthenticated users to login
-  if (!isAuthenticated && pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  return NextResponse.next();
-}
+export default withAuth({
+  pages: {
+    signIn: "/login",
+  },
+})
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
-}; 
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - login (auth page)
+     * - api/auth (auth API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!login|api/auth|_next/static|_next/image|favicon.ico|public).*)",
+  ],
+} 
