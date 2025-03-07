@@ -1,21 +1,27 @@
-import { ProtectedRoute } from "@/components/auth/protected-route";
-import { Sidebar } from "@/components/layout/sidebar";
+"use client"
+
+import { useState } from "react"
+import { ProtectedRoute } from "@/components/auth/protected-route"
+import { Sidebar } from "@/components/navigation/Sidebar"
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
+  const [isCollapsed, setIsCollapsed] = useState(false)
+
   return (
     <ProtectedRoute>
-      <div className="h-full relative">
-        <div className="hidden h-full md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 z-[80] bg-gray-900">
-          <Sidebar />
-        </div>
-        <main className="md:pl-72">
+      <div className="relative flex h-screen">
+        <Sidebar
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+        />
+        <main className="flex-1 overflow-y-auto">
           {children}
         </main>
       </div>
     </ProtectedRoute>
-  );
+  )
 } 
