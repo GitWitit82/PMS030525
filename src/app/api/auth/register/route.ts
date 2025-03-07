@@ -4,12 +4,13 @@ import { db } from "@/lib/db"
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json()
+    const body = await req.json()
+    const { name, email, password } = body
 
     // Check if user exists
     const existingUser = await db.user.findUnique({
       where: {
-        email,
+        email: email,
       },
     })
 
@@ -31,19 +32,17 @@ export async function POST(req: Request) {
       },
     })
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPass } = user
 
     return NextResponse.json(
-      {
-        user: userWithoutPass,
-        message: "User created successfully",
-      },
+      { ...userWithoutPass },
       { status: 201 }
     )
   } catch (error) {
     console.error("[REGISTER_ERROR]", error)
     return NextResponse.json(
-      { error: "Something went wrong" },
+      { error: "An error occurred" },
       { status: 500 }
     )
   }

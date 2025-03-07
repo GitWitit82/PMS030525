@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
     if (!user) {
       return NextResponse.json(
-        { success: false, message: "Invalid credentials" },
+        { error: "Invalid credentials" },
         { status: 401 }
       );
     }
@@ -25,18 +25,18 @@ export async function POST(req: Request) {
 
     if (!isPasswordValid) {
       return NextResponse.json(
-        { success: false, message: "Invalid credentials" },
+        { error: "Invalid credentials" },
         { status: 401 }
       );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPass } = user;
     const accessToken = signJwtAccessToken(userWithoutPass);
 
     const response = NextResponse.json(
       {
-        success: true,
-        user: userWithoutPass,
+        ...userWithoutPass,
         accessToken,
       },
       { status: 200 }
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("[LOGIN_ERROR]", error);
     return NextResponse.json(
-      { success: false, message: "Internal server error" },
+      { error: "An error occurred" },
       { status: 500 }
     );
   }

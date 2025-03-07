@@ -5,13 +5,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Command,
+  CreditCard,
   File,
   FileText,
   HelpCircle,
   Image,
   Laptop,
   Loader2,
-  LucideProps,
   Moon,
   MoreVertical,
   Pizza,
@@ -22,10 +22,9 @@ import {
   Twitter,
   User,
   X,
-  type Icon as LucideIcon,
 } from "lucide-react"
 
-export type Icon = LucideIcon
+export type Icon = React.ElementType
 
 export const Icons = {
   logo: Command,
@@ -38,17 +37,18 @@ export const Icons = {
   page: File,
   media: Image,
   settings: Settings,
-  billing: Pizza,
+  billing: CreditCard,
   ellipsis: MoreVertical,
   add: Plus,
   warning: AlertTriangle,
   user: User,
   arrowRight: ArrowRight,
   help: HelpCircle,
+  pizza: Pizza,
   sun: SunMedium,
   moon: Moon,
   laptop: Laptop,
-  gitHub: ({ ...props }: LucideProps) => (
+  gitHub: ({ ...props }: React.SVGProps<SVGSVGElement>) => (
     <svg
       aria-hidden="true"
       focusable="false"

@@ -1,8 +1,8 @@
 import { NextAuthOptions } from "next-auth"
-import { JWT } from "next-auth/jwt"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import { compare } from "bcryptjs"
+import { sign } from "jsonwebtoken"
 
 declare module "next-auth" {
   interface Session {
@@ -13,6 +13,13 @@ declare module "next-auth" {
       role: string
     }
   }
+
+  interface User {
+    id: string
+    email: string
+    name: string | null
+    role: string
+  }
 }
 
 declare module "next-auth/jwt" {
@@ -22,6 +29,22 @@ declare module "next-auth/jwt" {
     name: string | null
     role: string
   }
+}
+
+interface JWTPayload {
+  id: string
+  email: string
+  name: string | null
+  role: string
+  [key: string]: unknown
+}
+
+export function signJwtAccessToken(payload: JWTPayload) {
+  const secret = process.env.NEXTAUTH_SECRET || ""
+  const token = sign(payload, secret, {
+    expiresIn: "1d"
+  })
+  return token
 }
 
 /**
