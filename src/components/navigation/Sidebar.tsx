@@ -14,6 +14,7 @@ import {
   Users,
   FolderKanban,
   Settings,
+  GitBranch,
 } from "lucide-react"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -29,14 +30,19 @@ const sidebarLinks = [
     href: "/dashboard",
   },
   {
-    title: "Users",
-    icon: Users,
-    href: "/dashboard/users",
+    title: "Workflows",
+    icon: GitBranch,
+    href: "/workflows",
   },
   {
     title: "Projects",
     icon: FolderKanban,
     href: "/dashboard/projects",
+  },
+  {
+    title: "Users",
+    icon: Users,
+    href: "/dashboard/users",
   },
   {
     title: "Settings",

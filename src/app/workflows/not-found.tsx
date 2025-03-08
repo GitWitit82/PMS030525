@@ -11,7 +11,7 @@ export default function NotFound() {
         <h1 className="text-4xl font-bold">404</h1>
         <h2 className="text-xl font-semibold">Workflow Not Found</h2>
         <p className="text-muted-foreground">
-          The workflow you're looking for doesn't exist or has been deleted.
+          We couldn&apos;t find what you&apos;re looking for.
         </p>
       </div>
       <Link href="/workflows">

@@ -1,3 +1,5 @@
+'use client'
+
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -7,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -15,15 +16,41 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Workflow } from '@prisma/client'
+import { Workflow, Priority } from '@prisma/client'
+
+interface FormTemplate {
+  fields: Array<{
+    type: string
+    label: string
+    required?: boolean
+    options?: string[]
+  }>
+}
+
+interface Task {
+  id: string
+  name: string
+  description: string | null
+  priority: Priority
+  manHours: number | null
+  formTemplate: FormTemplate | null
+}
+
+interface Phase {
+  id: string
+  name: string
+  order: number
+  tasks: Task[]
+}
+
+interface WorkflowData extends Omit<Workflow, 'phases'> {
+  phases: Phase[]
+}
+
+interface WorkflowFormProps {
+  workflow?: WorkflowData
+}
 
 /**
  * Form schema for workflow creation/editing
@@ -37,32 +64,21 @@ const formSchema = z.object({
     tasks: z.array(z.object({
       name: z.string().min(1, 'Task name is required'),
       description: z.string().optional(),
-      priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
+      priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('MEDIUM'),
       manHours: z.number().optional(),
-      formTemplate: z.any().optional()
+      formTemplate: z.object({
+        fields: z.array(z.object({
+          type: z.string(),
+          label: z.string(),
+          required: z.boolean().optional(),
+          options: z.array(z.string()).optional()
+        }))
+      }).nullable().optional()
     })).default([])
   })).default([])
 })
 
 type FormData = z.infer<typeof formSchema>
-
-interface WorkflowFormProps {
-  workflow?: Workflow & {
-    phases: Array<{
-      id: string
-      name: string
-      order: number
-      tasks: Array<{
-        id: string
-        name: string
-        description: string | null
-        priority: 'LOW' | 'MEDIUM' | 'HIGH'
-        manHours: number | null
-        formTemplate: any | null
-      }>
-    }>
-  }
-}
 
 /**
  * Form component for creating and editing workflows
@@ -71,7 +87,6 @@ export function WorkflowForm({ workflow }: WorkflowFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = React.useState(false)
 
-  // Initialize form with existing workflow data or defaults
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: workflow ? {
@@ -85,7 +100,7 @@ export function WorkflowForm({ workflow }: WorkflowFormProps) {
           description: task.description || '',
           priority: task.priority,
           manHours: task.manHours || undefined,
-          formTemplate: task.formTemplate
+          formTemplate: task.formTemplate || undefined
         }))
       }))
     } : {
@@ -95,45 +110,30 @@ export function WorkflowForm({ workflow }: WorkflowFormProps) {
     }
   })
 
-  // Field array for managing phases
-  const { fields: phaseFields, append: appendPhase, remove: removePhase } = 
-    useFieldArray({
-      name: 'phases',
-      control: form.control
-    })
+  const { fields: phaseFields, append: appendPhase, remove: removePhase } = useFieldArray({
+    name: 'phases',
+    control: form.control
+  })
 
   async function onSubmit(data: FormData) {
+    setIsLoading(true)
     try {
-      setIsLoading(true)
-      const url = workflow 
-        ? `/api/workflows/${workflow.id}`
-        : '/api/workflows'
-      
-      const response = await fetch(url, {
+      const response = await fetch(workflow ? `/api/workflows/${workflow.id}` : '/api/workflows', {
         method: workflow ? 'PATCH' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       })
 
       if (!response.ok) {
         throw new Error('Failed to save workflow')
       }
 
-      const savedWorkflow = await response.json()
-      
-      toast.success(
-        workflow 
-          ? 'Workflow updated successfully'
-          : 'Workflow created successfully'
-      )
-      
-      router.push(`/workflows/${savedWorkflow.id}`)
+      toast.success(workflow ? 'Workflow updated' : 'Workflow created')
+      router.push('/workflows')
       router.refresh()
     } catch (error) {
-      console.error('Failed to save workflow:', error)
-      toast.error('Failed to save workflow')
+      toast.error('Something went wrong')
+      console.error(error)
     } finally {
       setIsLoading(false)
     }
@@ -151,9 +151,6 @@ export function WorkflowForm({ workflow }: WorkflowFormProps) {
               <FormControl>
                 <Input placeholder="Enter workflow name" {...field} />
               </FormControl>
-              <FormDescription>
-                A descriptive name for the workflow template.
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -171,33 +168,15 @@ export function WorkflowForm({ workflow }: WorkflowFormProps) {
                   {...field}
                 />
               </FormControl>
-              <FormDescription>
-                A detailed description of the workflow's purpose and process.
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Phases</h3>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => appendPhase({
-                name: '',
-                order: phaseFields.length,
-                tasks: []
-              })}
-            >
-              Add Phase
-            </Button>
-          </div>
-
-          {phaseFields.map((phaseField, phaseIndex) => (
-            <div key={phaseField.id} className="border rounded-lg p-4 space-y-4">
-              <div className="flex items-center justify-between">
+          {phaseFields.map((phase, phaseIndex) => (
+            <div key={phase.id} className="space-y-4 p-4 border rounded-lg">
+              <div className="flex items-center">
                 <FormField
                   control={form.control}
                   name={`phases.${phaseIndex}.name`}
@@ -238,11 +217,17 @@ export function WorkflowForm({ workflow }: WorkflowFormProps) {
                   </FormItem>
                 )}
               />
-
-              {/* Tasks section would go here - similar pattern to phases */}
             </div>
           ))}
         </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => appendPhase({ name: '', order: phaseFields.length, tasks: [] })}
+        >
+          Add Phase
+        </Button>
 
         <div className="flex justify-end space-x-4">
           <Button
@@ -260,4 +245,4 @@ export function WorkflowForm({ workflow }: WorkflowFormProps) {
       </form>
     </Form>
   )
-} 
+}

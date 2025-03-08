@@ -6,14 +6,22 @@ import { db } from '@/lib/db'
 import { WorkflowForm } from '@/components/workflows/workflow-form'
 
 interface PageProps {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }>
+}
+
+interface FormTemplate {
+  fields: Array<{
+    type: string
+    label: string
+    required?: boolean
+    options?: string[]
+  }>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params
   const workflow = await db.workflow.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { name: true }
   })
 
@@ -27,6 +35,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * Workflow edit page component
  */
 export default async function EditWorkflowPage({ params }: PageProps) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
 
   if (!session) {
@@ -39,15 +48,35 @@ export default async function EditWorkflowPage({ params }: PageProps) {
   }
 
   const workflow = await db.workflow.findUnique({
-    where: { id: params.id },
-    include: {
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      createdAt: true,
+      updatedAt: true,
+      version: true,
+      isActive: true,
+      createdById: true,
+      metadata: true,
       phases: {
-        orderBy: { order: 'asc' },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          order: true,
           tasks: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              priority: true,
+              manHours: true,
+              formTemplate: true
+            },
             orderBy: { createdAt: 'asc' }
           }
-        }
+        },
+        orderBy: { order: 'asc' }
       }
     }
   })
@@ -56,30 +85,29 @@ export default async function EditWorkflowPage({ params }: PageProps) {
     notFound()
   }
 
+  // Transform the workflow data to match the expected types
+  const transformedWorkflow = {
+    ...workflow,
+    phases: workflow.phases.map(phase => ({
+      ...phase,
+      tasks: phase.tasks.map(task => ({
+        ...task,
+        formTemplate: task.formTemplate ? {
+          fields: (task.formTemplate as unknown as FormTemplate)?.fields || []
+        } : null
+      }))
+    }))
+  }
+
   return (
-    <div className="flex-1 space-y-4 p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Edit Workflow</h2>
+    <div className="container py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Edit Workflow</h1>
+        <p className="text-muted-foreground">
+          Update workflow template details and structure
+        </p>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-4">
-          <div className="border rounded-lg p-6">
-            <WorkflowForm workflow={workflow} />
-          </div>
-        </div>
-        <div className="col-span-3">
-          <div className="border rounded-lg p-6">
-            <h3 className="text-lg font-medium mb-4">Tips</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>• Review and update phase order if needed</li>
-              <li>• Check task dependencies and timelines</li>
-              <li>• Update task priorities based on current needs</li>
-              <li>• Verify form templates are up to date</li>
-              <li>• Consider impact on existing projects</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+      <WorkflowForm workflow={transformedWorkflow} />
     </div>
   )
 } 

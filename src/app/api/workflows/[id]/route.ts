@@ -18,7 +18,7 @@ const updateWorkflowSchema = z.object({
       id: z.string().optional(), // Existing task ID
       name: z.string().min(1, 'Task name is required'),
       description: z.string().optional(),
-      priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
+      priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('MEDIUM'),
       manHours: z.number().optional(),
       formTemplate: z.any().optional()
     })).default([])
@@ -30,16 +30,17 @@ const updateWorkflowSchema = z.object({
  */
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
-) {
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Response> {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const workflow = await db.workflow.findUnique({
-      where: { id: params.id },
+    const foundWorkflow = await db.workflow.findUnique({
+      where: { id },
       include: {
         phases: {
           orderBy: { order: 'asc' },
@@ -57,14 +58,20 @@ export async function GET(
       }
     })
 
-    if (!workflow) {
-      return new NextResponse('Workflow not found', { status: 404 })
+    if (!foundWorkflow) {
+      return NextResponse.json(
+        { error: 'Workflow not found' },
+        { status: 404 }
+      )
     }
 
-    return NextResponse.json(workflow)
+    return NextResponse.json(foundWorkflow)
   } catch (error) {
     console.error('Failed to fetch workflow:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to fetch workflow' },
+      { status: 500 }
+    )
   }
 }
 
@@ -73,9 +80,10 @@ export async function GET(
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
-) {
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Response> {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 })
@@ -90,10 +98,10 @@ export async function PATCH(
     const body = updateWorkflowSchema.parse(json)
 
     // Start a transaction to handle complex updates
-    const workflow = await db.$transaction(async (tx) => {
+    const updatedWorkflow = await db.$transaction(async (tx) => {
       // Update workflow basic info
-      const workflow = await tx.workflow.update({
-        where: { id: params.id },
+      await tx.workflow.update({
+        where: { id },
         data: {
           name: body.name,
           description: body.description,
@@ -116,7 +124,7 @@ export async function PATCH(
         
         await tx.phase.deleteMany({
           where: {
-            workflowId: params.id,
+            workflowId: id,
             id: {
               notIn: phaseIds
             }
@@ -148,7 +156,7 @@ export async function PATCH(
             // Create new phase
             await tx.phase.create({
               data: {
-                workflowId: params.id,
+                workflowId: id,
                 name: phase.name,
                 order: phase.order,
                 tasks: {
@@ -168,7 +176,7 @@ export async function PATCH(
 
       // Return updated workflow
       return tx.workflow.findUnique({
-        where: { id: params.id },
+        where: { id },
         include: {
           phases: {
             orderBy: { order: 'asc' },
@@ -182,17 +190,23 @@ export async function PATCH(
       })
     })
 
-    if (!workflow) {
-      return new NextResponse('Workflow not found', { status: 404 })
+    if (!updatedWorkflow) {
+      return NextResponse.json(
+        { error: 'Workflow not found' },
+        { status: 404 }
+      )
     }
 
-    return NextResponse.json(workflow)
+    return NextResponse.json(updatedWorkflow)
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ errors: error.errors }, { status: 400 })
     }
     console.error('Failed to update workflow:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to update workflow' },
+      { status: 500 }
+    )
   }
 }
 
@@ -201,9 +215,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
-) {
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Response> {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 })
@@ -214,9 +229,9 @@ export async function DELETE(
       return new NextResponse('Forbidden', { status: 403 })
     }
 
-    // Check if workflow exists
+    // Check if workflow exists and has associated projects
     const workflow = await db.workflow.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: {
@@ -227,24 +242,30 @@ export async function DELETE(
     })
 
     if (!workflow) {
-      return new NextResponse('Workflow not found', { status: 404 })
+      return NextResponse.json(
+        { error: 'Workflow not found' },
+        { status: 404 }
+      )
     }
 
     // Don't allow deletion if workflow has active projects
     if (workflow._count.projects > 0) {
-      return new NextResponse(
-        'Cannot delete workflow with associated projects',
+      return NextResponse.json(
+        { error: 'Cannot delete workflow with associated projects' },
         { status: 400 }
       )
     }
 
     await db.workflow.delete({
-      where: { id: params.id }
+      where: { id },
     })
-
-    return new NextResponse(null, { status: 204 })
+    
+    return NextResponse.json({ message: 'Workflow deleted successfully' })
   } catch (error) {
     console.error('Failed to delete workflow:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to delete workflow' },
+      { status: 500 }
+    )
   }
 } 

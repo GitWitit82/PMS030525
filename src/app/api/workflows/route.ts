@@ -110,6 +110,7 @@ export async function POST(request: Request) {
       data: {
         name: body.name,
         description: body.description,
+        createdById: session.user.id,
         phases: {
           create: body.phases.map(phase => ({
             name: phase.name,
